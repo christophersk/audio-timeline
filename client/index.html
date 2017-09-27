@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Metronome</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+
+  let audioFileURL = '/cymbal1.wav';
+
+let context = new (window.AudioContext || window.webkitAudioContext)();
+
+let buffer = context.createBufferSource();
+
+let xhr = new XMLHttpRequest();
+xhr.open('GET', audioFileURL);
+xhr.responseType = 'arraybuffer';
+xhr.onload = function() {
+  context.decodeAudioData(xhr.response, audio => {
+    console.log('decoding audio data');
+    buffer.connect(context.destination);
+    buffer.buffer = audio;
+    // buffer.start(0);
+  })
+}
+xhr.send();
+
+function playSound(buffer) {
+  let source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  source.start(0);
+}
+
+let Timeline = function(options) {
+  this.tempo = options.tempo;
+  this.soundClips = [];
+  this.metronomeSound = {};
+  this.isMetronomeOn = false;
+  this.beat = 0;
+  this.start = context.currentTime;
+  this._tick = this.tick.bind(this);
+  this._tick();
+  this.time = 0;
+}
+
+Timeline.prototype.addSoundClip = function(fn) {
+  this.soundClips.push(fn);
+};
+
+Timeline.prototype.addBeatSoundClip = function(soundObject) {
+  this.metronomeSound = soundObject;
+}
+
+Timeline.prototype.tick = function() {
+  let now = context.currentTime + this.start;
+  this.time = now;
+
+
+  const timeSubDivide = 60 / this.tempo;
+  if (this.isMetronomeOn) {
+    this.checkAndPlayClick(timeSubDivide);
+  }
+
+  // console.log('time is', this.time)
+
+  // console.log('tick!');
+
+  this.checkAndPlay(now);
+  setTimeout(this._tick, 0);
+};
+
+Timeline.prototype.checkAndPlayClick = function(timeSubDivide) {
+  if (this.time > this.beat * timeSubDivide && this.time > 1) { // the this.time > 1 is to let sound buffer load, lazy hack
+    console.log('click', this.beat, this.time);
+    playSound(this.metronomeSound.sound.buffer);
+    this.beat++;
+  }
+}
+
+
+Timeline.prototype.checkAndPlay = function(now) {
+  /* this may get inefficient for large arrays. ToDo: add lookahead scheduling to push onto this array just before time is scheduled, and have Timeline on a webworker so it never gets interrupted (per https://www.html5rocks.com/en/tutorials/audio/scheduling/)
+  */
+  this.soundClips.forEach((soundClip, index) => {
+    if(now > soundClip.time) {
+      console.log('tempo is', this.tempo)
+      console.dir(soundClip.sound);
+      playSound(soundClip.sound.buffer);
+      this.soundClips.splice(index, 1);
+      console.log('sound played at', now);
+    }
+  })
+}
+
+let timeline = new Timeline({
+  tempo: 60
+})
+
+timeline.addSoundClip({ sound: buffer, time: 10 });
+
+timeline.addBeatSoundClip({ sound: buffer });
+
+  </script>
+</body>
+</html>
