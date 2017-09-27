@@ -8,11 +8,13 @@
   <div id="app"></div>
   <script>
 
-  let audioFileURL = '/cymbal1.wav';
+  let audioFileURL = '/GetToDaChoppa.mp3';
 
 let context = new (window.AudioContext || window.webkitAudioContext)();
 
 let buffer = context.createBufferSource();
+
+let timeline;
 
 let xhr = new XMLHttpRequest();
 xhr.open('GET', audioFileURL);
@@ -23,15 +25,23 @@ xhr.onload = function() {
     buffer.connect(context.destination);
     buffer.buffer = audio;
     // buffer.start(0);
+    timeline = new Timeline({
+      tempo: 60
+    })
+    timeline.addSoundClip({ sound: buffer, time: 2 });
+
+    timeline.addBeatSoundClip({ sound: buffer });
   })
 }
 xhr.send();
 
-function playSound(buffer) {
+function playSound(buffer, startTime) {
   let source = context.createBufferSource();
+  if (!startTime) startTime = 0;
+  console.log('startTime is', startTime)
   source.buffer = buffer;
   source.connect(context.destination);
-  source.start(0);
+  source.start(0, startTime);
 }
 
 let Timeline = function(options) {
@@ -40,10 +50,10 @@ let Timeline = function(options) {
   this.metronomeSound = {};
   this.isMetronomeOn = false;
   this.beat = 0;
-  this.start = context.currentTime;
+  this.start = 2.5;
   this._tick = this.tick.bind(this);
   this._tick();
-  this.time = 0;
+  this.time = context.currentTime + this.start;
 }
 
 Timeline.prototype.addSoundClip = function(fn) {
@@ -57,7 +67,6 @@ Timeline.prototype.addBeatSoundClip = function(soundObject) {
 Timeline.prototype.tick = function() {
   let now = context.currentTime + this.start;
   this.time = now;
-
 
   const timeSubDivide = 60 / this.tempo;
   if (this.isMetronomeOn) {
@@ -88,20 +97,16 @@ Timeline.prototype.checkAndPlay = function(now) {
     if(now > soundClip.time) {
       console.log('tempo is', this.tempo)
       console.dir(soundClip.sound);
-      playSound(soundClip.sound.buffer);
+      playSound(soundClip.sound.buffer, this.time - soundClip.time);
       this.soundClips.splice(index, 1);
       console.log('sound played at', now);
     }
   })
 }
 
-let timeline = new Timeline({
-  tempo: 60
-})
 
-timeline.addSoundClip({ sound: buffer, time: 10 });
 
-timeline.addBeatSoundClip({ sound: buffer });
+
 
   </script>
 </body>
